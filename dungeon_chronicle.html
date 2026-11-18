@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dungeon Chronicle</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DotGothic16&display=swap');
+:root{--bg:#0c0d12;--panel:#171a23;--line:#34394b;--gold:#e8c46a;--text:#e7e8ed;--muted:#969bad;--red:#d65b63;--green:#75c48c;--blue:#74a8e8}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#202437 0,#0c0d12 65%);color:var(--text);font-family:'DotGothic16',sans-serif;min-height:100vh}
+.wrap{max-width:1100px;margin:auto;padding:22px 16px 40px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.brand{font-family:'Press Start 2P';font-size:15px;color:var(--gold);letter-spacing:1px}.subtitle{color:var(--muted);font-size:13px;margin-top:8px}.topright{font-size:13px;color:var(--muted)}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px}.panel{background:linear-gradient(180deg,#191c26,#12151c);border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 40px #0005}.mainpanel{padding:14px}.side{display:flex;flex-direction:column;gap:12px}.section{padding:14px}.section h3{font-size:14px;color:var(--gold);margin:0 0 12px;border-bottom:1px solid var(--line);padding-bottom:8px}
+#game{display:block;width:100%;max-width:640px;margin:auto;background:#111;image-rendering:pixelated;border:3px solid #454b5e;border-radius:4px}
+.controls{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin:12px 0 2px}.btn{font-family:inherit;color:var(--text);background:#252a37;border:1px solid #495168;padding:8px 12px;border-radius:4px;cursor:pointer;font-size:14px;transition:.15s}.btn:hover{background:#333c50;border-color:var(--gold);transform:translateY(-1px)}.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}.btn.gold{color:#19140a;background:var(--gold);border-color:#f1d98e}.btn.red{border-color:#8c454b;color:#ffb2b4}.party{display:grid;gap:9px}.member{padding:9px;background:#202430;border:1px solid #34394b;border-radius:5px}.member.active{border-color:var(--gold);box-shadow:0 0 0 1px #e8c46a33}.mrow{display:flex;justify-content:space-between;font-size:14px;margin-bottom:5px}.bars{height:8px;background:#363a47;border-radius:8px;overflow:hidden;margin:4px 0}.hp{height:100%;background:linear-gradient(90deg,#a63d4b,#e66c70)}.mp{height:100%;background:linear-gradient(90deg,#426da9,#83b7ed)}.small{font-size:12px;color:var(--muted)}.log{height:160px;overflow:auto;display:flex;flex-direction:column;gap:5px;font-size:13px}.log p{margin:0;padding:5px 7px;border-left:2px solid #454b5e;background:#1c202a}.log p.good{border-color:var(--green)}.log p.bad{border-color:var(--red)}.statusline{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:8px auto;max-width:640px;color:var(--muted);font-size:13px}.overlay{position:fixed;inset:0;background:#080910e8;display:flex;align-items:center;justify-content:center;padding:18px;z-index:5}.modal{max-width:480px;width:100%;padding:22px;text-align:center;background:#171a24;border:1px solid #555c72;border-radius:9px;box-shadow:0 20px 60px #000}.modal h1{font-family:'Press Start 2P';font-size:20px;line-height:1.8;color:var(--gold)}.modal p{color:#c3c7d3;line-height:1.8}.hide{display:none!important}.battleinfo{text-align:center;margin:4px auto 10px;color:#f0c5c5;font-size:15px}.actionbar{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}.hint{text-align:center;font-size:12px;color:var(--muted);margin-top:10px}
+@media(max-width:800px){.layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:1fr 1fr}.logbox{grid-column:1/-1}.brand{font-size:11px}.wrap{padding:12px}}
+@media(max-width:480px){.side{grid-template-columns:1fr}.logbox{grid-column:auto}.btn{padding:7px 9px}.topright{font-size:11px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><div><div class="brand">DUNGEON CHRONICLE</div><div class="subtitle">A pixel-art turn-based RPG prototype</div></div><div class="topright">Chapter 01 · Forgotten Ruins</div></header>
+<div class="layout">
+<section class="panel mainpanel">
+<canvas id="game" width="640" height="448"></canvas>
+<div class="statusline"><span id="floor">探索階層：地下1階</span><span id="state">探索中</span></div>
+<div id="exploreControls" class="controls">
+<button class="btn" onclick="move(0,-1)">▲ W</button><button class="btn" onclick="move(-1,0)">◀ A</button><button class="btn" onclick="move(0,1)">▼ S</button><button class="btn" onclick="move(1,0)">▶ D</button>
+</div>
+<div id="battleControls" class="controls hide">
+<button class="btn gold" onclick="action('attack')">⚔ 攻撃</button><button class="btn" onclick="action('skill')">✦ スキル</button><button class="btn" onclick="action('guard')">🛡 防御</button><button class="btn" onclick="action('potion')">✚ ポーション</button><button class="btn red" onclick="action('run')">逃走</button>
+</div>
+<div class="hint">移動：WASD / 矢印キー　　宝箱：隣接して Enter</div>
+</section>
+<aside class="side">
+<section class="panel section"><h3>パーティー</h3><div class="party" id="party"></div></section>
+<section class="panel section"><h3>冒険情報</h3><div id="stats" style="line-height:1.9;font-size:14px"></div><div class="controls" style="justify-content:flex-start"><button class="btn" onclick="saveGame()">セーブ</button><button class="btn" onclick="loadGame()">ロード</button><button class="btn" onclick="resetGame()">最初から</button></div></section>
+<section class="panel section logbox"><h3>冒険ログ</h3><div class="log" id="log"></div></section>
+</aside>
+</div>
+</div>
+<div id="title" class="overlay"><div class="modal"><h1>DUNGEON<br>CHRONICLE</h1><p>忘れられた地下遺跡を探索し、<br>仲間と共に深淵へ挑め。</p><button class="btn gold" onclick="startGame()">冒険を始める</button><p class="small">WASD / 矢印キーで移動</p></div></div>
+<div id="message" class="overlay hide"><div class="modal"><h1 id="msgTitle">GAME OVER</h1><p id="msgText"></p><button class="btn gold" onclick="resetGame()">もう一度冒険する</button></div></div>
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+const TILE=32, W=20,H=14;
+let map,player,party,enemy,mode='title',turn=0,level=1,gold=0,potions=3,selected=0,defending=false;
+const heroes=[
+{name:'カイト',role:'戦士',emoji:'⚔',maxHp:42,hp:42,maxMp:12,mp:12,atk:9,def:5},
+{name:'ミリア',role:'魔法使い',emoji:'✦',maxHp:28,hp:28,maxMp:26,mp:26,atk:5,def:2},
+{name:'セラ',role:'僧侶',emoji:'✚',maxHp:32,hp:32,maxMp:24,mp:24,atk:6,def:3},
+{name:'レン',role:'盗賊',emoji:'◆',maxHp:34,hp:34,maxMp:16,mp:16,atk:8,def:3}
+];
+function makeMap(){let m=Array.from({length:H},()=>Array(W).fill(1));for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++)m[y][x]=0;
+for(let x=3;x<17;x++){if(x!==8&&x!==14)m[4][x]=1;}for(let y=2;y<12;y++){if(y!==6&&y!==10)m[y][6]=1;}for(let y=2;y<12;y++){if(y!==7)m[y][13]=1;}
+for(let x=7;x<13;x++){if(x!==10)m[9][x]=1;}m[2][2]=0;m[11][17]=0;
+m[2][16]=2;m[10][3]=2;m[7][10]=3;return m}
+function startGame(){document.getElementById('title').classList.add('hide');mode='explore';render();log('遺跡に足を踏み入れた。気をつけて進もう。');}
+function resetGame(){map=makeMap();player={x:2,y:2};party=heroes.map(h=>({...h}));level=1;gold=0;potions=3;turn=0;enemy=null;mode='explore';document.getElementById('message').classList.add('hide');document.getElementById('title').classList.add('hide');render();log('新たな冒険が始まった！');}
+function render(){drawMap();renderParty();renderStats();document.getElementById('floor').textContent='探索階層：地下'+level+'階';document.getElementById('state').textContent=mode==='battle'?'戦闘中':'探索中';document.getElementById('exploreControls').classList.toggle('hide',mode!=='explore');document.getElementById('battleControls').classList.toggle('hide',mode!=='battle');}
+function drawMap(){ctx.clearRect(0,0,canvas.width,canvas.height);for(let y=0;y<H;y++)for(let x=0;x<W;x++){let t=map[y][x];let px=x*TILE,py=y*TILE;
+if(t===1){ctx.fillStyle='#292d3b';ctx.fillRect(px,py,TILE,TILE);ctx.fillStyle='#353b4b';ctx.fillRect(px+2,py+2,28,28);ctx.fillStyle='#242835';ctx.fillRect(px+5,py+5,22,22);}
+else {ctx.fillStyle=((x+y)%2)?'#181c25':'#1b202a';ctx.fillRect(px,py,TILE,TILE);ctx.fillStyle='#222733';ctx.fillRect(px+2,py+2,28,28);ctx.fillStyle='#303542';ctx.fillRect(px+4,py+4,2,2);}
+if(t===2){ctx.fillStyle='#d5a64f';ctx.fillRect(px+7,py+10,18,14);ctx.fillStyle='#f3d47e';ctx.fillRect(px+7,py+8,18,5);ctx.fillStyle='#654522';ctx.fillRect(px+14,py+15,4,5)}
+if(t===3){ctx.fillStyle='#7868a6';ctx.fillRect(px+10,py+5,12,22);ctx.fillStyle='#c5b3ff';ctx.fillRect(px+7,py+7,18,4);ctx.fillStyle='#4c426b';ctx.fillRect(px+8,py+18,16,9)}
+}
+if(mode==='battle'&&enemy){ctx.fillStyle='#121620';ctx.fillRect(220,95,200,140);ctx.fillStyle='#6a343e';ctx.fillRect(260,135,120,70);ctx.fillStyle='#cf5965';ctx.fillRect(275,120,90,90);ctx.fillStyle='#f0d9dc';ctx.fillRect(292,145,12,12);ctx.fillRect(336,145,12,12);ctx.fillStyle='#171820';ctx.fillRect(297,150,5,5);ctx.fillRect(341,150,5,5);ctx.fillStyle='#16151c';ctx.fillRect(302,181,38,7);ctx.fillStyle='#f0e8d5';ctx.font='14px DotGothic16';ctx.fillText(enemy.name,290,112);ctx.fillStyle='#333';ctx.fillRect(260,220,120,8);ctx.fillStyle='#c94e5b';ctx.fillRect(260,220,120*(enemy.hp/enemy.maxHp),8);}
+let pX=player.x*TILE,pY=player.y*TILE;ctx.fillStyle='#e8c46a';ctx.fillRect(pX+8,pY+4,16,24);ctx.fillStyle='#faf0c7';ctx.fillRect(pX+10,pY+5,12,8);ctx.fillStyle='#4a6b9b';ctx.fillRect(pX+8,pY+14,16,10);ctx.fillStyle='#b9c9e9';ctx.fillRect(pX+10,pY+24,5,5);ctx.fillRect(pX+18,pY+24,5,5);ctx.fillStyle='#fff';ctx.fillRect(pX+12,pY+8,3,3);ctx.fillRect(pX+18,pY+8,3,3);
+}
+function renderParty(){let el=document.getElementById('party');el.innerHTML='';party.forEach((h,i)=>{let d=document.createElement('div');d.className='member'+(i===selected?' active':'');d.innerHTML=`<div class="mrow"><b>${h.emoji} ${h.name} <span class="small">(${h.role})</span></b><span>Lv.${h.level||1}</span></div><div class="small">HP ${h.hp}/${h.maxHp}</div><div class="bars"><div class="hp" style="width:${100*h.hp/h.maxHp}%"></div></div><div class="small">MP ${h.mp}/${h.maxMp}</div><div class="bars"><div class="mp" style="width:${100*h.mp/h.maxMp}%"></div></div>`;d.onclick=()=>{selected=i;renderParty()};el.appendChild(d);});}
+function renderStats(){document.getElementById('stats').innerHTML=`階層：地下${level}階<br>所持金：${gold} G<br>ポーション：${potions}個<br>撃破数：${turn}体`;}
+function log(msg,type=''){let e=document.getElementById('log'),p=document.createElement('p');p.textContent=msg;p.className=type;e.prepend(p);while(e.children.length>40)e.lastChild.remove();}
+function move(dx,dy){if(mode!=='explore')return;let nx=player.x+dx,ny=player.y+dy;if(nx<0||ny<0||nx>=W||ny>=H||map[ny][nx]===1)return;
+player.x=nx;player.y=ny;let tile=map[ny][nx];if(tile===2){map[ny][nx]=0;gold+=15+Math.floor(Math.random()*20);potions++;log('宝箱を開けた！ゴールドとポーションを手に入れた。','good');}
+if(tile===3){map[ny][nx]=0;level++;party.forEach(h=>{h.hp=Math.min(h.maxHp,h.hp+8);h.mp=Math.min(h.maxMp,h.mp+5)});log('階段を発見！地下'+level+'階へ進んだ。','good');map=makeMap();player={x:2,y:2};}
+render();if(Math.random()<.13)startBattle();}
+function startBattle(){mode='battle';enemy={name:['スライム','洞窟ゴブリン','闇のコウモリ'][Math.floor(Math.random()*3)],maxHp:22+level*5,hp:22+level*5,atk:5+level*2};log(`${enemy.name}が現れた！`,'bad');render();}
+function action(a){if(mode!=='battle'||!enemy)return;let h=party[selected];if(h.hp<=0){log(h.name+'は倒れている…');return;}
+if(a==='attack'){let dmg=Math.max(1,h.atk+Math.floor(Math.random()*4)-enemy.def||0);enemy.hp-=dmg;log(`${h.name}の攻撃！ ${dmg}ダメージ！`,'good');}
+if(a==='skill'){if(h.role==='魔法使い'){if(h.mp<6){log('MPが足りない！');return;}h.mp-=6;let dmg=14+level*3;enemy.hp-=dmg;log(`${h.name}のファイア！ ${dmg}ダメージ！`,'good');}
+else if(h.role==='僧侶'){if(h.mp<5){log('MPが足りない！');return;}h.mp-=5;let target=party.reduce((a,b)=>a.hp/a.maxHp<b.hp/b.maxHp?a:b);let heal=18+level*2;target.hp=Math.min(target.maxHp,target.hp+heal);log(`${h.name}のヒール！ ${target.name}を${heal}回復！`,'good');}
+else{let dmg=h.atk*2+level*2;enemy.hp-=dmg;log(`${h.name}の強攻撃！ ${dmg}ダメージ！`,'good');}}
+if(a==='guard'){defending=true;log(`${h.name}は身を守っている。`);}
+if(a==='potion'){if(potions<=0){log('ポーションがない！');return;}potions--;let target=party.reduce((a,b)=>a.hp/a.maxHp<b.hp/b.maxHp?a:b);target.hp=Math.min(target.maxHp,target.hp+25);log(`${target.name}のHPが回復した！`,'good');}
+if(a==='run'){if(Math.random()<.65){mode='explore';enemy=null;log('うまく逃げ切った。');render();return;}log('逃走に失敗！');}
+if(enemy&&enemy.hp<=0){victory();return;}
+if(a!=='run'||mode==='battle'){enemyTurn();}render();}
+function enemyTurn(){if(!enemy)return;let alive=party.filter(h=>h.hp>0);if(!alive.length){gameOver();return;}let target=alive[Math.floor(Math.random()*alive.length)];let dmg=Math.max(1,enemy.atk-target.def-(defending?4:0));target.hp=Math.max(0,target.hp-dmg);log(`${enemy.name}の攻撃！ ${target.name}は${dmg}ダメージ。`,'bad');defending=false;if(party.every(h=>h.hp<=0))gameOver();}
+function victory(){let exp=12+level*5,loot=5+Math.floor(Math.random()*15);gold+=loot;turn++;log(`${enemy.name}を倒した！ ${exp} EXP / ${loot} G獲得。`,'good');party.forEach(h=>{h.exp=(h.exp||0)+exp;if(h.exp>=(h.level||1)*20){h.exp=0;h.level=(h.level||1)+1;h.maxHp+=6;h.maxMp+=3;h.atk+=2;h.def+=1;h.hp=h.maxHp;h.mp=h.maxMp;log(`${h.name}はレベル${h.level}に上がった！`,'good');}});enemy=null;mode='explore';render();}
+function gameOver(){document.getElementById('msgTitle').textContent='GAME OVER';document.getElementById('msgText').textContent='パーティーは全滅した。';document.getElementById('message').classList.remove('hide');}
+function saveGame(){localStorage.setItem('dungeonChronicleSave',JSON.stringify({map,player,party,level,gold,potions,turn}));log('冒険をセーブした。','good');}
+function loadGame(){let s=localStorage.getItem('dungeonChronicleSave');if(!s){log('セーブデータがありません。');return;}let d=JSON.parse(s);map=d.map;player=d.player;party=d.party;level=d.level;gold=d.gold;potions=d.potions;turn=d.turn;mode='explore';enemy=null;log('セーブデータをロードした。','good');render();}
+function key(e){if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();if(mode==='explore'){if(e.key==='ArrowUp'||e.key.toLowerCase()==='w')move(0,-1);if(e.key==='ArrowDown'||e.key.toLowerCase()==='s')move(0,1);if(e.key==='ArrowLeft'||e.key.toLowerCase()==='a')move(-1,0);if(e.key==='ArrowRight'||e.key.toLowerCase()==='d')move(1,0);if(e.key==='Enter'){let dirs=[[0,1],[0,-1],[1,0],[-1,0]];for(let [dx,dy]of dirs){let x=player.x+dx,y=player.y+dy;if(map[y]?.[x]===2){map[y][x]=0;gold+=20;potions++;log('宝箱から20Gとポーションを獲得！','good');render();break;}}}}}
+document.addEventListener('keydown',key);
+resetGame();document.getElementById('title').classList.remove('hide');
+</script>
+</body></html>
